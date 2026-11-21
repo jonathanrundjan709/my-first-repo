@@ -78,6 +78,15 @@ input, select { background: var(--bg); border: 1px solid var(--line); border-rad
 .bar-col.sel .lbl { color: var(--fg); font-weight: 600; }
 .bar-col.sel .bar { outline: 2px solid var(--fg); outline-offset: 1px; }
 .avg { color: var(--muted); font-size: .85rem; margin-top: 10px; }
+.hint { color: var(--muted); font-size: .85rem; margin: 8px 0 12px; }
+.photo-btn { display: inline-block; cursor: pointer; text-align: center; }
+.scan-img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; margin-top: 12px; }
+.scan-status { color: var(--muted); margin-top: 10px; }
+.scan-status.err { color: var(--over); }
+.scan-item { display: grid; grid-template-columns: 1fr 84px auto; gap: 8px; align-items: center; margin-top: 8px; }
+.scan-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.ghost { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; }
+.sync { color: var(--muted); font-size: .75rem; text-align: center; }
 @media (max-width: 420px) { .ring { margin: 0 auto; } }
 @media (prefers-reduced-motion: no-preference) { .bar, .ring circle { transition: all .3s ease; } }
 </style>
@@ -110,6 +119,14 @@ input, select { background: var(--bg); border: 1px solid var(--line); border-rad
     </div>
   </section>
 
+  <section class="card" id="photocard" hidden>
+    <h2>Scan a meal</h2>
+    <p class="hint">Take a photo of your plate and Claude estimates the calories. Check the numbers before adding.</p>
+    <label class="primary photo-btn" for="photo">Take or choose photo</label>
+    <input id="photo" type="file" accept="image/*" hidden>
+    <div id="scan"></div>
+  </section>
+
   <section class="card">
     <h2>Add food</h2>
     <form id="form">
@@ -135,6 +152,7 @@ input, select { background: var(--bg); border: 1px solid var(--line); border-rad
     <div class="week" id="week"></div>
     <div class="avg num" id="avg"></div>
   </section>
+  <div class="sync" id="sync">Saved on this device only</div>
 </main>
 
 <script>
@@ -145,6 +163,63 @@ input, select { background: var(--bg); border: 1px solid var(--line); border-rad
   var state = { goal: 2000, days: {} };
   try { var raw = localStorage.getItem(KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  var dbRefs = null; // set when synced storage is available
+
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function addEntry(day, e) {
+    (state.days[day] = state.days[day] || []).push(e);
+    save();
+    if (dbRefs) dbRefs.entries.doc(e.id).set({ day: day, name: e.name, kcal: e.kcal, meal: e.meal }).catch(function () {});
+  }
+  function removeEntry(day, id) {
+    state.days[day] = (state.days[day] || []).filter(function (x) { return x.id !== id; });
+    if (!state.days[day].length) delete state.days[day];
+    save();
+    if (dbRefs) dbRefs.entries.doc(id).delete().catch(function () {});
+  }
+  function setGoal(g) {
+    state.goal = g; save();
+    if (dbRefs) dbRefs.settings.doc("main").set({ goal: g }).catch(function () {});
+  }
+
+  // Synced storage: entries live under the signed-in viewer's private path, so every device sees them.
+  (async function initSync() {
+    try {
+      if (!window.claude || !claude.use) return;
+      var db = await claude.use("db"), user = await claude.use("user");
+      if (!db || !user) return;
+      var uid = await user.id();
+      if (!uid) return;
+      var base = "data/users/" + uid;
+      var refs = { entries: db.collection(base + "/entries"), settings: db.collection(base + "/settings") };
+      var firstEntries = true;
+      refs.settings.doc("main").onSnapshot(function (s) {
+        if (s.exists && s.data() && s.data().goal) { state.goal = s.data().goal; save(); render(); }
+      });
+      refs.entries.onSnapshot(function (snap) {
+        var days = {};
+        snap.docs.forEach(function (d) {
+          var v = d.data(); if (!v || !v.day) return;
+          (days[v.day] = days[v.day] || []).push({ id: d.id, name: v.name, kcal: v.kcal, meal: v.meal });
+        });
+        if (firstEntries) {
+          firstEntries = false;
+          // One-time upload of anything logged on this device before sync was on.
+          Object.keys(state.days).forEach(function (day) {
+            state.days[day].forEach(function (e) {
+              if (!snap.docs.some(function (d) { return d.id === e.id; })) {
+                refs.entries.doc(e.id).set({ day: day, name: e.name, kcal: e.kcal, meal: e.meal }).catch(function () {});
+                (days[day] = days[day] || []).push(e);
+              }
+            });
+          });
+        }
+        state.days = days; save(); render();
+      }, function () { $("sync").textContent = "Sync unavailable, saved on this device only"; });
+      dbRefs = refs;
+      $("sync").textContent = "Synced across your devices";
+    } catch (e) {}
+  })();
 
   function iso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
   function parse(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
@@ -195,11 +270,7 @@ input, select { background: var(--bg); border: 1px solid var(--line); border-rad
           var k = document.createElement("span"); k.className = "kcal num"; k.textContent = fmt(e.kcal);
           var d = document.createElement("button"); d.className = "del"; d.type = "button"; d.textContent = "×";
           d.setAttribute("aria-label", "Delete " + e.name);
-          d.onclick = function () {
-            state.days[current] = (state.days[current] || []).filter(function (x) { return x.id !== e.id; });
-            if (!state.days[current].length) delete state.days[current];
-            save(); render();
-          };
+          d.onclick = function () { removeEntry(current, e.id); render(); };
           row.append(n, k, d); g.appendChild(row);
         });
         log.appendChild(g);
@@ -236,8 +307,8 @@ input, select { background: var(--bg); border: 1px solid var(--line); border-rad
   }
 
   function add(name, kcal, meal) {
-    (state.days[current] = state.days[current] || []).push({ id: Date.now() + Math.random(), name: name, kcal: kcal, meal: meal });
-    save(); render();
+    addEntry(current, { id: newId(), name: name, kcal: kcal, meal: meal });
+    render();
   }
 
   $("form").addEventListener("submit", function (ev) {
@@ -257,11 +328,94 @@ input, select { background: var(--bg); border: 1px solid var(--line); border-rad
 
   $("goal").addEventListener("change", function () {
     var g = parseInt($("goal").value, 10);
-    if (g >= 500 && g <= 10000) { state.goal = g; save(); }
+    if (g >= 500 && g <= 10000) setGoal(g);
     render();
   });
   $("prev").onclick = function () { var d = parse(current); d.setDate(d.getDate() - 1); current = iso(d); render(); };
   $("next").onclick = function () { var d = parse(current); d.setDate(d.getDate() + 1); if (iso(d) <= todayStr) { current = iso(d); render(); } };
+
+  // Camera / photo scan: Claude estimates calories from a picture of the meal.
+  (async function initScan() {
+    try {
+      if (!window.claude || !claude.use) return;
+      var sample = await claude.use("sample");
+      if (!sample) return;
+      var caps = await sample.limits().catch(function () { return null; });
+      if (!caps || !caps.images) return;
+      $("photocard").hidden = false;
+      var scan = $("scan");
+
+      function shrink(file) {
+        return new Promise(function (resolve, reject) {
+          var url = URL.createObjectURL(file), img = new Image();
+          img.onload = function () {
+            var s = Math.min(1, 1024 / Math.max(img.width, img.height));
+            var c = document.createElement("canvas");
+            c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+            c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+            c.toBlob(function (b) { b ? resolve({ blob: b, url: url }) : reject(new Error("blob")); }, "image/jpeg", 0.85);
+          };
+          img.onerror = function () { reject(new Error("img")); };
+          img.src = url;
+        });
+      }
+      function status(msg, err) {
+        var p = document.createElement("div"); p.className = "scan-status" + (err ? " err" : ""); p.textContent = msg; return p;
+      }
+      var ERR = {
+        not_granted: "Photo scan is turned off for this page. Allow Claude in the page permissions to use it.",
+        rate_limited: "Too many scans in a row. Wait a moment and try again.",
+        cancelled: "Scan cancelled."
+      };
+
+      $("photo").addEventListener("change", async function (ev) {
+        var file = ev.target.files && ev.target.files[0];
+        ev.target.value = "";
+        if (!file) return;
+        scan.textContent = "";
+        var small;
+        try { small = await shrink(file); } catch (e) { scan.appendChild(status("Could not read that photo. Try another one.", true)); return; }
+        var pic = document.createElement("img"); pic.className = "scan-img"; pic.src = small.url; pic.alt = "Your meal";
+        scan.appendChild(pic);
+        scan.appendChild(status("Claude is looking at your meal…"));
+        try {
+          var res = await sample.json(
+            "This photo shows a meal or food. Identify each distinct food item and estimate its calories for the portion visible. " +
+            "Reply with only JSON: {\"items\":[{\"name\":string,\"kcal\":integer}],\"note\":string}. " +
+            "Use short names with portion size, like \"Fried rice, 1 plate\". If there is no food, return an empty items array and explain in note.",
+            { images: small.blob, modelTier: "quick", cache: false }
+          );
+          var items = (res && res.items || []).filter(function (it) { return it && it.name && it.kcal > 0; });
+          scan.textContent = ""; scan.appendChild(pic);
+          if (!items.length) { scan.appendChild(status((res && res.note) || "No food found in that photo.", true)); return; }
+          var rows = items.map(function (it) {
+            var row = document.createElement("div"); row.className = "scan-item";
+            var n = document.createElement("input"); n.value = it.name; n.maxLength = 80; n.setAttribute("aria-label", "Food name");
+            var k = document.createElement("input"); k.type = "number"; k.min = 1; k.value = Math.round(it.kcal); k.setAttribute("aria-label", "Calories");
+            var x = document.createElement("button"); x.type = "button"; x.className = "del"; x.textContent = "×"; x.setAttribute("aria-label", "Remove");
+            x.onclick = function () { row.remove(); };
+            row.append(n, k, x); scan.appendChild(row); return row;
+          });
+          if (res.note) scan.appendChild(status(res.note));
+          var acts = document.createElement("div"); acts.className = "scan-actions";
+          var addAll = document.createElement("button"); addAll.type = "button"; addAll.className = "primary"; addAll.textContent = "Add to " + $("meal").value.toLowerCase();
+          addAll.onclick = function () {
+            scan.querySelectorAll(".scan-item").forEach(function (row) {
+              var ins = row.querySelectorAll("input"), kc = parseInt(ins[1].value, 10), nm = ins[0].value.trim();
+              if (nm && kc > 0) addEntry(current, { id: newId(), name: nm, kcal: kc, meal: $("meal").value });
+            });
+            scan.textContent = ""; render();
+          };
+          var cancel = document.createElement("button"); cancel.type = "button"; cancel.className = "ghost"; cancel.textContent = "Discard";
+          cancel.onclick = function () { scan.textContent = ""; };
+          acts.append(addAll, cancel); scan.appendChild(acts);
+        } catch (e) {
+          scan.textContent = ""; scan.appendChild(pic);
+          scan.appendChild(status(ERR[e && e.code] || "Could not analyze that photo. Try again or add the food by hand.", true));
+        }
+      });
+    } catch (e) {}
+  })();
 
   var h = new Date().getHours();
   $("meal").value = h < 11 ? "Breakfast" : h < 15 ? "Lunch" : h < 20 ? "Dinner" : "Snack";
