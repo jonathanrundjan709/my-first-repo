@@ -79,6 +79,9 @@ button:active { transform: scale(.97); opacity: .75; }
 .mfields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
 .mfields label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .mfields input { width: 100%; background: var(--glass); border: 1px solid var(--glass-line); border-radius: 14px; padding: 12px; font-size: 16px; font-weight: 500; color: var(--fg); outline: none; text-transform: none; letter-spacing: 0; }
+.hint { color: var(--muted); font-size: 13px; margin: 12px 2px 0; }
+#textout { margin-top: 14px; }
+#textout .scan-actions { margin-bottom: 12px; }
 .sec-title { margin: 10px 4px -4px; font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
 .group { padding: 8px 18px 6px; }
 .group-head { display: flex; justify-content: space-between; padding: 10px 0 6px; }
@@ -211,17 +214,21 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
     <form id="form">
       <div class="fields">
         <div class="field"><label for="food">Food</label><input id="food" placeholder="What did you eat?" required maxlength="80" autocomplete="off"></div>
-        <div class="field"><label for="cal">Calories</label><input id="cal" type="number" inputmode="numeric" min="1" max="5000" placeholder="kcal" required></div>
       </div>
+      <div id="manual">
+      <div class="fields" style="margin-top:10px"><div class="field"><label for="cal">Calories</label><input id="cal" type="number" inputmode="numeric" min="1" max="5000" placeholder="kcal"></div></div>
       <div class="mfields">
         <label for="pro">Protein (g)<input id="pro" type="number" inputmode="decimal" min="0" max="500" placeholder="0"></label>
         <label for="carb">Carbs (g)<input id="carb" type="number" inputmode="decimal" min="0" max="800" placeholder="0"></label>
         <label for="fat">Fat (g)<input id="fat" type="number" inputmode="decimal" min="0" max="500" placeholder="0"></label>
       </div>
+      </div>
+      <p class="hint" id="aihint" hidden>Type what you ate, with amounts if you know them. Claude works out the calories, protein, carbs and fat.</p>
+      <div id="textout"></div>
       <div class="seg" id="seg" role="group" aria-label="Meal">
         <button type="button" aria-pressed="false">Breakfast</button><button type="button" aria-pressed="false">Lunch</button><button type="button" aria-pressed="false">Dinner</button><button type="button" aria-pressed="false">Snack</button>
       </div>
-      <button class="cta" type="submit">Add to log</button>
+      <button class="cta" type="submit" id="submitbtn">Add to log</button>
     </form>
   </div>
   <div id="panel-scan" hidden>
@@ -239,6 +246,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
   try { var raw = localStorage.getItem(KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
   var dbRefs = null;
+  var aiMode = false;
   var meal = "Breakfast";
 
   function $(id) { return document.getElementById(id); }
@@ -306,13 +314,14 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
   QUICK.forEach(function (q) {
     var c = document.createElement("button"); c.type = "button"; c.className = "chip";
     c.textContent = q[0]; var s = document.createElement("span"); s.textContent = q[1]; c.appendChild(s);
-    c.onclick = function () { $("food").value = q[0]; $("cal").value = q[1]; $("pro").value = q[2]; $("carb").value = q[3]; $("fat").value = q[4]; $("cal").focus(); };
+    c.onclick = function () { $("food").value = q[0]; if (aiMode) { window.__analyze(q[0]); return; } $("cal").value = q[1]; $("pro").value = q[2]; $("carb").value = q[3]; $("fat").value = q[4]; $("cal").focus(); };
     $("chips").appendChild(c);
   });
 
   $("form").addEventListener("submit", function (ev) {
     ev.preventDefault();
     var name = $("food").value.trim(), kcal = parseInt($("cal").value, 10);
+    if (aiMode) { if (name && window.__analyze) window.__analyze(name); return; }
     if (!name || !(kcal > 0)) return;
     addEntry(current, { id: newId(), name: name, kcal: kcal, meal: meal, p: parseFloat($("pro").value) || 0, c: parseFloat($("carb").value) || 0, f: parseFloat($("fat").value) || 0 });
     $("food").value = ""; $("cal").value = ""; $("pro").value = ""; $("carb").value = ""; $("fat").value = "";
@@ -409,6 +418,69 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
       : "Log a few days to see your average.";
   }
 
+  function renderResults(host, res, pic) {
+    function st(msg, err) { var p = document.createElement("div"); p.className = "scan-status" + (err ? " err" : ""); p.textContent = msg; return p; }
+    host.textContent = ""; if (pic) host.appendChild(pic);
+    var items = (res && res.items || []).filter(function (it) { return it && it.name && it.kcal > 0; });
+    if (!items.length) { host.appendChild(st((res && res.note) || "Could not find any food in that.", true)); return; }
+    var fl = document.createElement("div"); fl.className = "fields";
+    items.forEach(function (it) {
+      var row = document.createElement("div"); row.className = "field scan-item";
+      var n = document.createElement("input"); n.value = it.name; n.maxLength = 80; n.setAttribute("aria-label", "Food name");
+      var k = document.createElement("input"); k.type = "number"; k.className = "k"; k.min = 1; k.value = Math.round(it.kcal); k.setAttribute("aria-label", "Calories");
+      var x = document.createElement("button"); x.type = "button"; x.className = "del"; x.textContent = "×"; x.setAttribute("aria-label", "Remove item");
+      row._m = { p: +it.protein || 0, c: +it.carbs || 0, f: +it.fat || 0 };
+      x.onclick = function () { row.remove(); if (row._sub) row._sub.remove(); };
+      row.append(n, k, x); fl.appendChild(row);
+      if (hasMacros(row._m)) { var mm = document.createElement("div"); mm.className = "mline"; mm.style.cssText = "padding:0 16px 10px"; mm.textContent = macroText(row._m); row._sub = mm; fl.appendChild(mm); }
+    });
+    host.appendChild(fl);
+    if (res.note) host.appendChild(st(res.note));
+    var acts = document.createElement("div"); acts.className = "scan-actions";
+    var addAll = document.createElement("button"); addAll.type = "button"; addAll.className = "cta"; addAll.textContent = "Add to " + meal.toLowerCase();
+    addAll.onclick = function () {
+      fl.querySelectorAll(".scan-item").forEach(function (row) {
+        var ins = row.querySelectorAll("input"), kc = parseInt(ins[1].value, 10), nm = ins[0].value.trim();
+        if (nm && kc > 0) addEntry(current, { id: newId(), name: nm, kcal: kc, meal: meal, p: row._m.p, c: row._m.c, f: row._m.f });
+      });
+      host.textContent = ""; $("food").value = ""; closeSheet(); render();
+    };
+    var cancel = document.createElement("button"); cancel.type = "button"; cancel.className = "cta alt"; cancel.textContent = "Discard";
+    cancel.onclick = function () { host.textContent = ""; if (host.id === "scan") closeSheet(); };
+    acts.append(addAll, cancel); host.appendChild(acts);
+  }
+
+  function setupText(sample) {
+    aiMode = true;
+    $("manual").hidden = true; $("aihint").hidden = false; $("submitbtn").textContent = "Analyze with Claude";
+    $("food").placeholder = "e.g. 2 eggs and toast with butter";
+    var out = $("textout"), busy = false;
+    var ERR = { not_granted: "Food analysis is turned off for this page. Allow Claude in the page permissions.", rate_limited: "Too many requests. Wait a moment and try again." };
+    window.__analyze = async function (name) {
+      if (busy) return; busy = true;
+      out.textContent = "";
+      var p = document.createElement("div"); p.className = "scan-status";
+      var sp = document.createElement("div"); sp.className = "spinner"; p.appendChild(sp); p.appendChild(document.createTextNode("Looking up " + name + "…"));
+      out.appendChild(p);
+      try {
+        var res = await sample.json(
+          "A person logged this food in a calorie tracker: \"" + name.replace(/"/g, "'") + "\". Estimate calories and grams of protein, carbs and fat. " +
+          "Use the amount they gave; if none, assume one typical serving and say the portion in the name, like \"Fried rice, 1 plate\". " +
+          "If several foods are listed, return one item per food. Understand foods from any cuisine, including Indonesian. " +
+          "Reply with only JSON: {\"items\":[{\"name\":string,\"kcal\":integer,\"protein\":number,\"carbs\":number,\"fat\":number}],\"note\":string}. " +
+          "If it is not a food, return an empty items array and explain in note.",
+          { modelTier: "quick" }
+        );
+        renderResults(out, res);
+      } catch (e) {
+        out.textContent = "";
+        var m = document.createElement("div"); m.className = "scan-status err";
+        m.textContent = ERR[e && e.code] || "Could not analyze that. Try again or rephrase."; out.appendChild(m);
+      }
+      busy = false;
+    };
+  }
+
   (async function initSync() {
     try {
       if (!window.claude || !claude.use) return;
@@ -451,6 +523,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
       if (!window.claude || !claude.use) return;
       var sample = await claude.use("sample");
       if (!sample) return;
+      setupText(sample);
       var caps = await sample.limits().catch(function () { return null; });
       if (!caps || !caps.images) return;
       $("scantab").hidden = false;
@@ -498,34 +571,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
             "Use short names with portion size, like \"Fried rice, 1 plate\". If there is no food, return an empty items array and explain in note.",
             { images: small.blob, modelTier: "quick", cache: false }
           );
-          var items = (res && res.items || []).filter(function (it) { return it && it.name && it.kcal > 0; });
-          scan.textContent = ""; scan.appendChild(pic);
-          if (!items.length) { scan.appendChild(status((res && res.note) || "No food found in that photo.", true)); return; }
-          var fl = document.createElement("div"); fl.className = "fields";
-          items.forEach(function (it) {
-            var row = document.createElement("div"); row.className = "field scan-item";
-            var n = document.createElement("input"); n.value = it.name; n.maxLength = 80; n.setAttribute("aria-label", "Food name");
-            var k = document.createElement("input"); k.type = "number"; k.className = "k"; k.min = 1; k.value = Math.round(it.kcal); k.setAttribute("aria-label", "Calories");
-            var x = document.createElement("button"); x.type = "button"; x.className = "del"; x.textContent = "×"; x.setAttribute("aria-label", "Remove item");
-            x.onclick = function () { row.remove(); };
-            row._m = { p: +it.protein || 0, c: +it.carbs || 0, f: +it.fat || 0 };
-            row.append(n, k, x); fl.appendChild(row);
-            if (hasMacros(row._m)) { var mm = document.createElement("div"); mm.className = "mline"; mm.style.cssText = "padding:0 16px 10px"; mm.textContent = macroText(row._m); row.after ? 0 : 0; row._sub = mm; fl.appendChild(mm); x.onclick = function () { row.remove(); mm.remove(); }; }
-          });
-          scan.appendChild(fl);
-          if (res.note) scan.appendChild(status(res.note));
-          var acts = document.createElement("div"); acts.className = "scan-actions";
-          var addAll = document.createElement("button"); addAll.type = "button"; addAll.className = "cta"; addAll.textContent = "Add to " + meal.toLowerCase();
-          addAll.onclick = function () {
-            fl.querySelectorAll(".scan-item").forEach(function (row) {
-              var ins = row.querySelectorAll("input"), kc = parseInt(ins[1].value, 10), nm = ins[0].value.trim();
-              if (nm && kc > 0) addEntry(current, { id: newId(), name: nm, kcal: kc, meal: meal, p: row._m.p, c: row._m.c, f: row._m.f });
-            });
-            closeSheet(); render();
-          };
-          var cancel = document.createElement("button"); cancel.type = "button"; cancel.className = "cta alt"; cancel.textContent = "Discard";
-          cancel.onclick = closeSheet;
-          acts.append(addAll, cancel); scan.appendChild(acts);
+          renderResults(scan, res, pic);
         } catch (e) {
           scan.textContent = ""; scan.appendChild(pic);
           scan.appendChild(status(ERR[e && e.code] || "Could not analyze that photo. Try again or add the food by hand.", true));
