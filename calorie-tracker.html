@@ -417,7 +417,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
       var uid = await user.id();
       if (!uid) return;
       var base = "data/users/" + uid;
-      var refs = { entries: db.collection(base + "/entries"), settings: db.collection(base + "/settings") };
+      var refs = { entries: db.collection(base + "/tracker/entries"), settings: db.collection(base + "/tracker/settings") };
       var first = true;
       refs.settings.doc("main").onSnapshot(function (s) {
         if (s.exists && s.data() && s.data().goal) { state.goal = s.data().goal; save(); render(); }
