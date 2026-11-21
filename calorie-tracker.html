@@ -146,6 +146,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
 .scan-status.err { color: var(--over); }
 .spinner { width: 24px; height: 24px; border-radius: 50%; border: 3px solid var(--track); border-top-color: var(--a2); margin: 0 auto 10px; animation: spin .8s linear infinite; }
 .scan-item input.k { flex: none; width: 70px; text-align: right; color: var(--muted); }
+.scan-item input.g { width: 54px; color: var(--fg); }
 .scan-item .del { color: var(--over); font-size: 20px; }
 .scan-actions { display: grid; gap: 10px; margin-top: 16px; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -418,30 +419,65 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
       : "Log a few days to see your average.";
   }
 
-  function renderResults(host, res, pic) {
+  var RULES = "Rules: estimate the weight in grams of each item as served (cooked weight, including batter, sauce and oil). Do not overestimate: one piece of fried fish fillet is about 60 to 100 g, a chicken drumstick about 90 g, a cup of cooked rice about 160 g. Name the food as specifically as you can. When two foods look alike (for example fried fish or fried chicken) pick the most likely one and mention the doubt in note. Understand foods from any cuisine, including Indonesian. Reply with only JSON: {\"items\":[{\"name\":string,\"grams\":number,\"kcal\":integer,\"protein\":number,\"carbs\":number,\"fat\":number}],\"note\":string}. If there is no food, return an empty items array and explain in note.";
+
+  function renderResults(host, res, pic, rerun) {
     function st(msg, err) { var p = document.createElement("div"); p.className = "scan-status" + (err ? " err" : ""); p.textContent = msg; return p; }
     host.textContent = ""; if (pic) host.appendChild(pic);
     var items = (res && res.items || []).filter(function (it) { return it && it.name && it.kcal > 0; });
-    if (!items.length) { host.appendChild(st((res && res.note) || "Could not find any food in that.", true)); return; }
+    if (!items.length) { host.appendChild(st((res && res.note) || "Could not find any food in that.", true)); }
     var fl = document.createElement("div"); fl.className = "fields";
     items.forEach(function (it) {
+      var base = { g: +it.grams || 0, kcal: +it.kcal, p: +it.protein || 0, c: +it.carbs || 0, f: +it.fat || 0 };
       var row = document.createElement("div"); row.className = "field scan-item";
       var n = document.createElement("input"); n.value = it.name; n.maxLength = 80; n.setAttribute("aria-label", "Food name");
-      var k = document.createElement("input"); k.type = "number"; k.className = "k"; k.min = 1; k.value = Math.round(it.kcal); k.setAttribute("aria-label", "Calories");
+      var gi = document.createElement("input"); gi.type = "number"; gi.className = "k g"; gi.min = 1; gi.setAttribute("aria-label", "Weight in grams");
+      var k = document.createElement("input"); k.type = "number"; k.className = "k"; k.min = 1; k.value = Math.round(base.kcal); k.setAttribute("aria-label", "Calories");
       var x = document.createElement("button"); x.type = "button"; x.className = "del"; x.textContent = "×"; x.setAttribute("aria-label", "Remove item");
-      row._m = { p: +it.protein || 0, c: +it.carbs || 0, f: +it.fat || 0 };
-      x.onclick = function () { row.remove(); if (row._sub) row._sub.remove(); };
-      row.append(n, k, x); fl.appendChild(row);
-      if (hasMacros(row._m)) { var mm = document.createElement("div"); mm.className = "mline"; mm.style.cssText = "padding:0 16px 10px"; mm.textContent = macroText(row._m); row._sub = mm; fl.appendChild(mm); }
+      row._m = { p: base.p, c: base.c, f: base.f }; row._g = base.g;
+      var mm = document.createElement("div"); mm.className = "mline"; mm.style.cssText = "padding:0 16px 10px"; row._sub = mm;
+      function showM() { mm.textContent = hasMacros(row._m) ? macroText(row._m) : ""; mm.hidden = !hasMacros(row._m); }
+      if (base.g > 0) {
+        gi.value = Math.round(base.g);
+        gi.addEventListener("input", function () {
+          var g = parseFloat(gi.value); if (!(g > 0)) return;
+          var r = g / base.g; row._g = g;
+          k.value = Math.round(base.kcal * r);
+          row._m = { p: Math.round(base.p * r * 10) / 10, c: Math.round(base.c * r * 10) / 10, f: Math.round(base.f * r * 10) / 10 };
+          showM();
+        });
+      } else { gi.hidden = true; }
+      x.onclick = function () { row.remove(); mm.remove(); };
+      var gl = document.createElement("span"); gl.className = "mline"; gl.textContent = "g"; gl.hidden = base.g <= 0;
+      row.append(n, gi, gl, k, x); fl.appendChild(row); fl.appendChild(mm); showM();
     });
-    host.appendChild(fl);
-    if (res.note) host.appendChild(st(res.note));
+    if (items.length) host.appendChild(fl);
+    if (res && res.note) host.appendChild(st(res.note));
+
+    if (rerun) {
+      var fix = document.createElement("div"); fix.className = "fields"; fix.style.marginTop = "12px";
+      var fr = document.createElement("div"); fr.className = "field";
+      var fi = document.createElement("input"); fi.placeholder = "Wrong? Tell me, e.g. it's fried dory, about 80 g"; fi.maxLength = 200; fi.setAttribute("aria-label", "Correction");
+      var fb = document.createElement("button"); fb.type = "button"; fb.className = "link"; fb.textContent = "Re-check";
+      fr.append(fi, fb); fix.appendChild(fr); host.appendChild(fix);
+      var go = async function () {
+        var hint = fi.value.trim(); if (!hint) return;
+        fb.disabled = true; fb.textContent = "Checking…";
+        try { var r2 = await rerun(hint, res); renderResults(host, r2, pic, rerun); }
+        catch (e) { fb.disabled = false; fb.textContent = "Re-check"; host.appendChild(st("Could not re-check. Try again.", true)); }
+      };
+      fb.onclick = go; fi.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); go(); } });
+    }
+
+    if (!items.length) return;
     var acts = document.createElement("div"); acts.className = "scan-actions";
     var addAll = document.createElement("button"); addAll.type = "button"; addAll.className = "cta"; addAll.textContent = "Add to " + meal.toLowerCase();
     addAll.onclick = function () {
       fl.querySelectorAll(".scan-item").forEach(function (row) {
-        var ins = row.querySelectorAll("input"), kc = parseInt(ins[1].value, 10), nm = ins[0].value.trim();
-        if (nm && kc > 0) addEntry(current, { id: newId(), name: nm, kcal: kc, meal: meal, p: row._m.p, c: row._m.c, f: row._m.f });
+        var ins = row.querySelectorAll("input"), nm = ins[0].value.trim(), kc = parseInt(ins[2].value, 10);
+        if (!nm || !(kc > 0)) return;
+        if (row._g > 0 && !/\d\s?g\b/i.test(nm)) nm += ", " + Math.round(row._g) + " g";
+        addEntry(current, { id: newId(), name: nm, kcal: kc, meal: meal, p: row._m.p, c: row._m.c, f: row._m.f });
       });
       host.textContent = ""; $("food").value = ""; closeSheet(); render();
     };
@@ -463,15 +499,11 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
       var sp = document.createElement("div"); sp.className = "spinner"; p.appendChild(sp); p.appendChild(document.createTextNode("Looking up " + name + "…"));
       out.appendChild(p);
       try {
-        var res = await sample.json(
-          "A person logged this food in a calorie tracker: \"" + name.replace(/"/g, "'") + "\". Estimate calories and grams of protein, carbs and fat. " +
-          "Use the amount they gave; if none, assume one typical serving and say the portion in the name, like \"Fried rice, 1 plate\". " +
-          "If several foods are listed, return one item per food. Understand foods from any cuisine, including Indonesian. " +
-          "Reply with only JSON: {\"items\":[{\"name\":string,\"kcal\":integer,\"protein\":number,\"carbs\":number,\"fat\":number}],\"note\":string}. " +
-          "If it is not a food, return an empty items array and explain in note.",
-          { modelTier: "quick" }
-        );
-        renderResults(out, res);
+        var base = "A person logged this food in a calorie tracker: \"" + name.replace(/"/g, "'") + "\". Estimate calories and grams of protein, carbs and fat. Use the amount they gave; if none, assume one typical serving and state its weight in grams. If several foods are listed, return one item per food. " + RULES;
+        var res = await sample.json(base, { modelTier: "default" });
+        renderResults(out, res, null, function (hint, prev) {
+          return sample.json(base + "\n\nYour previous answer was: " + JSON.stringify(prev) + "\nThe person corrected you: \"" + hint.replace(/"/g, "'") + "\". Redo the estimate and follow the correction exactly.", { modelTier: "default", cache: false });
+        });
       } catch (e) {
         out.textContent = "";
         var m = document.createElement("div"); m.className = "scan-status err";
@@ -565,13 +597,11 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
         scan.appendChild(pic);
         scan.appendChild(status("Claude is looking at your meal…", false, true));
         try {
-          var res = await sample.json(
-            "This photo shows a meal or food. Identify each distinct food item and estimate its calories for the portion visible. " +
-            "Also estimate grams of protein, carbs and fat. Reply with only JSON: {\"items\":[{\"name\":string,\"kcal\":integer,\"protein\":number,\"carbs\":number,\"fat\":number}],\"note\":string}. " +
-            "Use short names with portion size, like \"Fried rice, 1 plate\". If there is no food, return an empty items array and explain in note.",
-            { images: small.blob, modelTier: "quick", cache: false }
-          );
-          renderResults(scan, res, pic);
+          var pbase = "This photo shows a meal or food. Identify each distinct food item and estimate its calories, protein, carbs and fat for the portion visible. Use plate size, utensils and the amount of food as scale for weights. " + RULES;
+          var res = await sample.json(pbase, { images: small.blob, modelTier: "default", cache: false });
+          renderResults(scan, res, pic, function (hint, prev) {
+            return sample.json(pbase + "\n\nYour previous answer was: " + JSON.stringify(prev) + "\nThe person corrected you: \"" + hint.replace(/"/g, "'") + "\". Look at the photo again, redo the estimate and follow the correction exactly.", { images: small.blob, modelTier: "default", cache: false });
+          });
         } catch (e) {
           scan.textContent = ""; scan.appendChild(pic);
           scan.appendChild(status(ERR[e && e.code] || "Could not analyze that photo. Try again or add the food by hand.", true));
