@@ -67,6 +67,18 @@ button:active { transform: scale(.97); opacity: .75; }
 .stats3 input { width: 100%; text-align: center; border: 0; background: none; padding: 0; outline: none; -moz-appearance: textfield; color: var(--a2); }
 .stats3 input::-webkit-outer-spin-button, .stats3 input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
+.macros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.macros > div { background: var(--glass); border: 1px solid var(--line); border-radius: 18px; padding: 10px 8px; text-align: center; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.macros b { font-size: 18px; font-weight: 700; }
+.macros small { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.macros .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+.dot.p { background: #ff6fae; } .dot.c { background: #ffc857; } .dot.f { background: #5be3c3; }
+.mline { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.row { flex-wrap: wrap; }
+.row .sub { flex-basis: 100%; color: var(--muted); font-size: 12px; margin-top: -8px; }
+.mfields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.mfields label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.mfields input { width: 100%; background: var(--glass); border: 1px solid var(--glass-line); border-radius: 14px; padding: 12px; font-size: 16px; font-weight: 500; color: var(--fg); outline: none; text-transform: none; letter-spacing: 0; }
 .sec-title { margin: 10px 4px -4px; font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
 .group { padding: 8px 18px 6px; }
 .group-head { display: flex; justify-content: space-between; padding: 10px 0 6px; }
@@ -161,6 +173,11 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
       <div><span class="label">Goal</span><input id="goal" type="number" inputmode="numeric" min="500" max="10000" step="50" aria-label="Daily goal in kcal"></div>
       <div><span class="label">Meals</span><b class="num" id="count">0</b></div>
     </div>
+    <div class="macros" aria-label="Macros eaten">
+      <div><small><i class="dot p"></i>Protein</small><b class="num"><span id="mp">0</span>g</b></div>
+      <div><small><i class="dot c"></i>Carbs</small><b class="num"><span id="mc">0</span>g</b></div>
+      <div><small><i class="dot f"></i>Fat</small><b class="num"><span id="mf">0</span>g</b></div>
+    </div>
   </section>
 
   <h2 class="sec-title" id="logtitle">Today</h2>
@@ -196,6 +213,11 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
         <div class="field"><label for="food">Food</label><input id="food" placeholder="What did you eat?" required maxlength="80" autocomplete="off"></div>
         <div class="field"><label for="cal">Calories</label><input id="cal" type="number" inputmode="numeric" min="1" max="5000" placeholder="kcal" required></div>
       </div>
+      <div class="mfields">
+        <label for="pro">Protein (g)<input id="pro" type="number" inputmode="decimal" min="0" max="500" placeholder="0"></label>
+        <label for="carb">Carbs (g)<input id="carb" type="number" inputmode="decimal" min="0" max="800" placeholder="0"></label>
+        <label for="fat">Fat (g)<input id="fat" type="number" inputmode="decimal" min="0" max="500" placeholder="0"></label>
+      </div>
       <div class="seg" id="seg" role="group" aria-label="Meal">
         <button type="button" aria-pressed="false">Breakfast</button><button type="button" aria-pressed="false">Lunch</button><button type="button" aria-pressed="false">Dinner</button><button type="button" aria-pressed="false">Snack</button>
       </div>
@@ -212,7 +234,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
 (function () {
   var KEY = "calorie-tracker-v1";
   var MEALS = ["Breakfast", "Lunch", "Dinner", "Snack"];
-  var QUICK = [["Egg", 78], ["Banana", 105], ["Rice, 1 cup", 205], ["Chicken breast", 165], ["Apple", 95], ["Coffee with milk", 40]];
+  var QUICK = [["Egg", 78, 6, 1, 5], ["Banana", 105, 1, 27, 0], ["Rice, 1 cup", 205, 4, 45, 0], ["Chicken breast", 165, 31, 0, 4], ["Apple", 95, 0, 25, 0], ["Coffee with milk", 40, 2, 3, 2]];
   var state = { goal: 2000, days: {} };
   try { var raw = localStorage.getItem(KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
@@ -224,6 +246,11 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
   function parse(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
   var todayStr = iso(new Date());
   var current = todayStr;
+  function g1(n) { n = Math.round((+n || 0) * 10) / 10; return String(n); }
+  function pack(day, e) { return { day: day, name: e.name, kcal: e.kcal, meal: e.meal, p: +e.p || 0, c: +e.c || 0, f: +e.f || 0 }; }
+  function macroSum(list) { return list.reduce(function (a, e) { a.p += +e.p || 0; a.c += +e.c || 0; a.f += +e.f || 0; return a; }, { p: 0, c: 0, f: 0 }); }
+  function macroText(m) { return "P " + g1(m.p) + "g · C " + g1(m.c) + "g · F " + g1(m.f) + "g"; }
+  function hasMacros(e) { return (+e.p || 0) + (+e.c || 0) + (+e.f || 0) > 0; }
   function total(day) { return (state.days[day] || []).reduce(function (a, e) { return a + e.kcal; }, 0); }
   function fmt(n) { return Math.round(n).toLocaleString(); }
   function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -237,7 +264,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
   function addEntry(day, e) {
     (state.days[day] = state.days[day] || []).push(e);
     save();
-    if (dbRefs) dbRefs.entries.doc(e.id).set({ day: day, name: e.name, kcal: e.kcal, meal: e.meal }).catch(function () {});
+    if (dbRefs) dbRefs.entries.doc(e.id).set(pack(day, e)).catch(function () {});
   }
   function removeEntry(day, id) {
     state.days[day] = (state.days[day] || []).filter(function (x) { return x.id !== id; });
@@ -279,7 +306,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
   QUICK.forEach(function (q) {
     var c = document.createElement("button"); c.type = "button"; c.className = "chip";
     c.textContent = q[0]; var s = document.createElement("span"); s.textContent = q[1]; c.appendChild(s);
-    c.onclick = function () { $("food").value = q[0]; $("cal").value = q[1]; $("cal").focus(); };
+    c.onclick = function () { $("food").value = q[0]; $("cal").value = q[1]; $("pro").value = q[2]; $("carb").value = q[3]; $("fat").value = q[4]; $("cal").focus(); };
     $("chips").appendChild(c);
   });
 
@@ -287,8 +314,8 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
     ev.preventDefault();
     var name = $("food").value.trim(), kcal = parseInt($("cal").value, 10);
     if (!name || !(kcal > 0)) return;
-    addEntry(current, { id: newId(), name: name, kcal: kcal, meal: meal });
-    $("food").value = ""; $("cal").value = "";
+    addEntry(current, { id: newId(), name: name, kcal: kcal, meal: meal, p: parseFloat($("pro").value) || 0, c: parseFloat($("carb").value) || 0, f: parseFloat($("fat").value) || 0 });
+    $("food").value = ""; $("cal").value = ""; $("pro").value = ""; $("carb").value = ""; $("fat").value = "";
     closeSheet(); render();
   });
 
@@ -315,6 +342,8 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
     $("remaining").textContent = fmt(Math.abs(goal - sum));
     $("remaining").classList.toggle("over", over);
     $("count").textContent = entries.length;
+    var tm = macroSum(entries);
+    $("mp").textContent = g1(tm.p); $("mc").textContent = g1(tm.c); $("mf").textContent = g1(tm.f);
 
     var log = $("log"); log.innerHTML = "";
     if (!entries.length) {
@@ -329,6 +358,8 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
         var hr2 = document.createElement("span"); hr2.className = "num";
         hr2.textContent = fmt(items.reduce(function (a, e) { return a + e.kcal; }, 0)) + " kcal";
         head.append(hl, hr2); g.appendChild(head);
+        var gm = macroSum(items);
+        if (hasMacros(gm)) { var ml = document.createElement("div"); ml.className = "mline"; ml.style.paddingBottom = "8px"; ml.textContent = "Meal total: " + macroText(gm); g.appendChild(ml); }
         items.forEach(function (e) {
           var row = document.createElement("button"); row.type = "button"; row.className = "row";
           row.setAttribute("aria-label", e.name + ", " + e.kcal + " kcal. Tap for delete.");
@@ -336,6 +367,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
           var k = document.createElement("span"); k.className = "kcal num"; k.textContent = fmt(e.kcal);
           var d = document.createElement("span"); d.className = "del"; d.textContent = "Delete";
           row.append(n, k, d);
+          if (hasMacros(e)) { var sb = document.createElement("span"); sb.className = "sub"; sb.textContent = macroText(e); row.appendChild(sb); }
           row.onclick = function () {
             if (row.classList.contains("open")) { removeEntry(current, e.id); render(); }
             else {
@@ -394,14 +426,14 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
         var days = {};
         snap.docs.forEach(function (d) {
           var v = d.data(); if (!v || !v.day) return;
-          (days[v.day] = days[v.day] || []).push({ id: d.id, name: v.name, kcal: v.kcal, meal: v.meal });
+          (days[v.day] = days[v.day] || []).push({ id: d.id, name: v.name, kcal: v.kcal, meal: v.meal, p: v.p || 0, c: v.c || 0, f: v.f || 0 });
         });
         if (first) {
           first = false;
           Object.keys(state.days).forEach(function (day) {
             state.days[day].forEach(function (e) {
               if (!snap.docs.some(function (d) { return d.id === e.id; })) {
-                refs.entries.doc(e.id).set({ day: day, name: e.name, kcal: e.kcal, meal: e.meal }).catch(function () {});
+                refs.entries.doc(e.id).set(pack(day, e)).catch(function () {});
                 (days[day] = days[day] || []).push(e);
               }
             });
@@ -462,7 +494,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
         try {
           var res = await sample.json(
             "This photo shows a meal or food. Identify each distinct food item and estimate its calories for the portion visible. " +
-            "Reply with only JSON: {\"items\":[{\"name\":string,\"kcal\":integer}],\"note\":string}. " +
+            "Also estimate grams of protein, carbs and fat. Reply with only JSON: {\"items\":[{\"name\":string,\"kcal\":integer,\"protein\":number,\"carbs\":number,\"fat\":number}],\"note\":string}. " +
             "Use short names with portion size, like \"Fried rice, 1 plate\". If there is no food, return an empty items array and explain in note.",
             { images: small.blob, modelTier: "quick", cache: false }
           );
@@ -476,7 +508,9 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
             var k = document.createElement("input"); k.type = "number"; k.className = "k"; k.min = 1; k.value = Math.round(it.kcal); k.setAttribute("aria-label", "Calories");
             var x = document.createElement("button"); x.type = "button"; x.className = "del"; x.textContent = "×"; x.setAttribute("aria-label", "Remove item");
             x.onclick = function () { row.remove(); };
+            row._m = { p: +it.protein || 0, c: +it.carbs || 0, f: +it.fat || 0 };
             row.append(n, k, x); fl.appendChild(row);
+            if (hasMacros(row._m)) { var mm = document.createElement("div"); mm.className = "mline"; mm.style.cssText = "padding:0 16px 10px"; mm.textContent = macroText(row._m); row.after ? 0 : 0; row._sub = mm; fl.appendChild(mm); x.onclick = function () { row.remove(); mm.remove(); }; }
           });
           scan.appendChild(fl);
           if (res.note) scan.appendChild(status(res.note));
@@ -485,7 +519,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
           addAll.onclick = function () {
             fl.querySelectorAll(".scan-item").forEach(function (row) {
               var ins = row.querySelectorAll("input"), kc = parseInt(ins[1].value, 10), nm = ins[0].value.trim();
-              if (nm && kc > 0) addEntry(current, { id: newId(), name: nm, kcal: kc, meal: meal });
+              if (nm && kc > 0) addEntry(current, { id: newId(), name: nm, kcal: kc, meal: meal, p: row._m.p, c: row._m.c, f: row._m.f });
             });
             closeSheet(); render();
           };
