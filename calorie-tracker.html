@@ -8,7 +8,7 @@
   --glass: rgba(255,255,255,.09); --glass-strong: rgba(255,255,255,.14); --glass-line: rgba(255,255,255,.2); --line: rgba(255,255,255,.12);
   --shadow: 0 10px 40px rgba(0,0,0,.35);
   --a1: #7c5cff; --a2: #19d3ff; --blob1: #6d3bff; --blob2: #ff4fa3; --blob3: #14c8ff;
-  --over: #ff6b8a; --on-accent: #ffffff; --scrim: rgba(8,6,30,.55); --track: rgba(255,255,255,.12);
+  --pro-a: #ff6fae; --pro-b: #ffb36b; --over: #ff6b8a; --on-accent: #ffffff; --scrim: rgba(8,6,30,.55); --track: rgba(255,255,255,.12);
   --font: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   color-scheme: dark;
 }
@@ -82,6 +82,45 @@ button:active { transform: scale(.97); opacity: .75; }
 .hint { color: var(--muted); font-size: 13px; margin: 12px 2px 0; }
 #textout { margin-top: 14px; }
 #textout .scan-actions { margin-bottom: 12px; }
+.quest { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.q-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.q-head h3 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+.streak { display: flex; align-items: center; gap: 6px; background: var(--glass-strong); border: 1px solid var(--glass-line); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; }
+.streak svg { width: 16px; height: 16px; color: #ff9f43; }
+.streak.cold svg { color: var(--muted); }
+.q-nums { display: flex; align-items: baseline; gap: 8px; color: var(--muted); font-weight: 600; }
+.q-nums b { font-size: 40px; font-weight: 800; letter-spacing: -.03em; color: var(--fg); line-height: 1; }
+.q-nums input { width: 62px; background: var(--glass); border: 1px solid var(--glass-line); border-radius: 10px; padding: 4px 6px; text-align: center; font-weight: 700; color: var(--pro-a); outline: none; -moz-appearance: textfield; }
+.q-nums input::-webkit-outer-spin-button, .q-nums input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.q-bar { position: relative; height: 16px; border-radius: 8px; background: var(--track); }
+.q-bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 8px; background: linear-gradient(90deg, var(--pro-a), var(--pro-b)); transition: width .7s cubic-bezier(.3,1.1,.5,1); }
+.q-bar .ms { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--bg); border: 2px solid var(--glass-line); }
+.q-bar .ms.on { background: #fff; border-color: #fff; box-shadow: 0 0 8px var(--pro-a); }
+.q-msg { font-weight: 600; }
+.q-tips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.q-tips::-webkit-scrollbar { display: none; }
+.tip { flex: none; background: var(--glass); border: 1px solid var(--glass-line); border-radius: 14px; padding: 8px 12px; text-align: left; font-size: 13px; font-weight: 600; }
+.tip small { display: block; color: var(--pro-a); font-size: 12px; font-weight: 700; }
+.q-level { display: grid; grid-template-columns: 1fr; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
+.q-level .row2 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.q-level small { color: var(--muted); font-weight: 600; }
+.q-xp { height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
+.q-xp i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--a2), var(--a1)); border-radius: 4px; transition: width .7s ease; }
+.q-badges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.badge { text-align: center; padding: 10px 4px; border-radius: 14px; background: var(--glass); border: 1px solid var(--line); font-size: 11px; font-weight: 700; line-height: 1.2; color: var(--muted); }
+.badge svg { width: 22px; height: 22px; display: block; margin: 0 auto 6px; }
+.badge.on { color: var(--fg); border-color: var(--glass-line); background: var(--glass-strong); }
+.badge.on svg { color: #ffc857; }
+.badge:not(.on) { opacity: .55; }
+.sec-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin: 10px 0 -4px; }
+.sec-row .sec-title { margin: 0; }
+.mini-seg { display: flex; background: var(--glass); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.mini-seg button { padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.mini-seg button[aria-pressed="true"] { background: var(--glass-strong); color: var(--fg); }
+.fill.hit { background: linear-gradient(180deg, #7dffb0, #19c37d); }
+.confetti { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; }
+.confetti span { position: absolute; top: -12px; width: 9px; height: 14px; border-radius: 2px; animation: fall 2.4s ease-in forwards; }
+@keyframes fall { to { transform: translate(var(--dx), 105vh) rotate(var(--rot)); opacity: .9; } }
 .sec-title { margin: 10px 4px -4px; font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
 .group { padding: 8px 18px 6px; }
 .group-head { display: flex; justify-content: space-between; padding: 10px 0 6px; }
@@ -184,10 +223,20 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
     </div>
   </section>
 
+  <section class="glass quest" id="quest" aria-label="Protein quest">
+    <div class="q-head"><h3>Protein quest</h3><div class="streak cold" id="streak"></div></div>
+    <div class="q-nums"><b class="num" id="qp">0</b><span>of</span><input id="progoal" type="number" inputmode="numeric" min="20" max="400" step="5" aria-label="Daily protein goal in grams"><span>g protein</span></div>
+    <div class="q-bar" id="qbarwrap"><i id="qbar"></i><span class="ms" style="left:25%"></span><span class="ms" style="left:50%"></span><span class="ms" style="left:75%"></span><span class="ms" style="left:100%"></span></div>
+    <div class="q-msg" id="qmsg"></div>
+    <div class="q-tips" id="qtips"></div>
+    <div class="q-level"><div class="row2"><b id="qlvl">Level 1</b><small class="num" id="qxp"></small></div><div class="q-xp"><i id="qxpbar"></i></div></div>
+    <div class="q-badges" id="qbadges"></div>
+  </section>
+
   <h2 class="sec-title" id="logtitle">Today</h2>
   <div id="log" style="display:flex;flex-direction:column;gap:12px"></div>
 
-  <h2 class="sec-title">Last 7 days</h2>
+  <div class="sec-row"><h2 class="sec-title">Last 7 days</h2><div class="mini-seg" id="wkseg"><button type="button" data-m="kcal" aria-pressed="true">Kcal</button><button type="button" data-m="pro" aria-pressed="false">Protein</button></div></div>
   <section class="glass weekcard">
     <div class="week" id="week"></div>
     <div class="wk-labels" id="wklabels"></div>
@@ -243,7 +292,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
   var KEY = "calorie-tracker-v1";
   var MEALS = ["Breakfast", "Lunch", "Dinner", "Snack"];
   var QUICK = [["Egg", 78, 6, 1, 5], ["Banana", 105, 1, 27, 0], ["Rice, 1 cup", 205, 4, 45, 0], ["Chicken breast", 165, 31, 0, 4], ["Apple", 95, 0, 25, 0], ["Coffee with milk", 40, 2, 3, 2]];
-  var state = { goal: 2000, days: {} };
+  var state = { goal: 2000, proGoal: 100, days: {} };
   try { var raw = localStorage.getItem(KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
   var dbRefs = null;
@@ -270,8 +319,12 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
     return parse(day).toLocaleDateString(undefined, { weekday: "long" });
   }
 
+  var pendingConfetti = false;
+  function proDay(day) { return macroSum(state.days[day] || []).p; }
   function addEntry(day, e) {
+    var wasHit = proDay(day) >= state.proGoal;
     (state.days[day] = state.days[day] || []).push(e);
+    if (!wasHit && day === todayStr && proDay(day) >= state.proGoal) pendingConfetti = true;
     save();
     if (dbRefs) dbRefs.entries.doc(e.id).set(pack(day, e)).catch(function () {});
   }
@@ -283,7 +336,11 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
   }
   function setGoal(g) {
     state.goal = g; save();
-    if (dbRefs) dbRefs.settings.doc("main").set({ goal: g }).catch(function () {});
+    if (dbRefs) dbRefs.settings.doc("main").set({ goal: state.goal, proGoal: state.proGoal }).catch(function () {});
+  }
+  function setProGoal(g) {
+    state.proGoal = g; save();
+    if (dbRefs) dbRefs.settings.doc("main").set({ goal: state.goal, proGoal: state.proGoal }).catch(function () {});
   }
 
   function openSheet(panel) {
@@ -390,34 +447,133 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
         log.appendChild(g);
       });
     }
+    renderQuest(entries);
     renderWeek();
+    if (pendingConfetti) { pendingConfetti = false; confetti(); }
   }
 
+  var PRO_FOODS = [["Chicken breast 100 g", 165, 31, 0, 4], ["2 eggs", 156, 12, 2, 10], ["Tempeh 100 g", 192, 19, 9, 11], ["Canned tuna", 120, 26, 0, 1], ["Greek yogurt cup", 100, 17, 6, 0], ["Tofu 100 g", 76, 8, 2, 5], ["Whey protein scoop", 120, 24, 3, 1], ["Salmon 100 g", 208, 22, 0, 13]];
+  var FLAME = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c1 3.5-1.5 5-2.5 7C8.4 11 9 12.5 10 13c-.2-1.6.8-3 2-3.8 1 3 4 4 4 7.3A5.5 5.5 0 0 1 12 22a6 6 0 0 1-6-6c0-3.2 2-4.8 3-7 .8-1.6.5-3.6 3-7z"/></svg>';
+  var STAR = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 2 2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"/></svg>';
+  var TITLES = ["Rookie", "Gym newbie", "Lifter", "Beast", "Legend"];
+
+  function confetti() {
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var box = document.createElement("div"); box.className = "confetti";
+    var cols = ["#ff6fae", "#ffb36b", "#7dffb0", "#19d3ff", "#7c5cff", "#ffd95a"];
+    for (var i = 0; i < 44; i++) {
+      var sp = document.createElement("span");
+      sp.style.left = Math.random() * 100 + "%"; sp.style.background = cols[i % cols.length];
+      sp.style.setProperty("--dx", (Math.random() * 160 - 80) + "px"); sp.style.setProperty("--rot", (Math.random() * 720 - 360) + "deg");
+      sp.style.animationDelay = Math.random() * .5 + "s"; box.appendChild(sp);
+    }
+    document.body.appendChild(box); setTimeout(function () { box.remove(); }, 3200);
+  }
+
+  function gameStats() {
+    var days = Object.keys(state.days).sort(), xp = 0, hits = {}, anyHit = false, best = 0, run = 0, prev = null;
+    days.forEach(function (d) {
+      var p = proDay(d), hit = p >= state.proGoal;
+      xp += Math.round(p) + (hit ? 50 : 0);
+      if (hit) { hits[d] = true; anyHit = true; }
+    });
+    days.forEach(function (d) {
+      if (!hits[d]) { run = 0; prev = null; return; }
+      var ok = prev && Math.round((parse(d) - parse(prev)) / 86400000) === 1;
+      run = ok ? run + 1 : 1; prev = d; if (run > best) best = run;
+    });
+    var cur = 0, d0 = new Date(parse(todayStr));
+    if (!hits[todayStr]) d0.setDate(d0.getDate() - 1);
+    while (hits[iso(d0)]) { cur++; d0.setDate(d0.getDate() - 1); }
+    return { xp: xp, streak: cur, best: best, anyLog: days.some(function (d) { return state.days[d].length; }), anyHit: anyHit };
+  }
+
+  function renderQuest(entries) {
+    var p = macroSum(entries).p, goal = state.proGoal, pct = Math.min(p / goal, 1);
+    $("qp").textContent = g1(p);
+    if (document.activeElement !== $("progoal")) $("progoal").value = goal;
+    $("qbar").style.width = pct * 100 + "%";
+    $("qbarwrap").querySelectorAll(".ms").forEach(function (m, i) { m.classList.toggle("on", pct >= (i + 1) * .25); });
+    var left = Math.max(goal - p, 0), msg;
+    if (p >= goal) msg = "Goal hit. Protein done for " + (current === todayStr ? "today" : "that day") + ", +50 XP.";
+    else if (p === 0) msg = "Start strong. Get some protein into your next meal.";
+    else if (pct < .5) msg = "Good start. " + g1(left) + " g to go.";
+    else msg = "Almost there. Just " + g1(left) + " g to go.";
+    $("qmsg").textContent = msg;
+
+    var tips = $("qtips"); tips.innerHTML = "";
+    if (left > 0) {
+      PRO_FOODS.slice().sort(function (a, b) { return Math.abs(a[2] - Math.min(left, 30)) - Math.abs(b[2] - Math.min(left, 30)); }).slice(0, 4).forEach(function (f) {
+        var t = document.createElement("button"); t.type = "button"; t.className = "tip";
+        t.textContent = f[0]; var sm = document.createElement("small"); sm.textContent = "+" + f[2] + " g protein"; t.appendChild(sm);
+        t.onclick = function () {
+          $("food").value = f[0]; openSheet("add");
+          if (aiMode && window.__analyze) window.__analyze(f[0]);
+          else { $("cal").value = f[1]; $("pro").value = f[2]; $("carb").value = f[3]; $("fat").value = f[4]; }
+        };
+        tips.appendChild(t);
+      });
+    }
+
+    var gs = gameStats(), lvl = Math.floor(gs.xp / 400), into = gs.xp % 400;
+    $("qlvl").textContent = "Level " + (lvl + 1) + " · " + TITLES[Math.min(lvl, TITLES.length - 1)];
+    $("qxp").textContent = gs.xp + " XP · " + (400 - into) + " to next";
+    $("qxpbar").style.width = into / 4 + "%";
+    var st = $("streak"); st.className = "streak" + (gs.streak ? "" : " cold");
+    st.innerHTML = FLAME; st.appendChild(document.createTextNode(gs.streak ? gs.streak + "-day streak" : "No streak yet"));
+    var bd = [["First log", gs.anyLog], ["Goal day", gs.anyHit], ["3-day streak", gs.best >= 3], ["7-day streak", gs.best >= 7]];
+    var bb = $("qbadges"); bb.innerHTML = "";
+    bd.forEach(function (b) {
+      var d = document.createElement("div"); d.className = "badge" + (b[1] ? " on" : "");
+      d.innerHTML = STAR; d.appendChild(document.createTextNode(b[0])); d.setAttribute("title", b[1] ? "Earned" : "Locked"); bb.appendChild(d);
+    });
+  }
+
+  var weekMetric = "kcal";
+  function dayVal(day) { return weekMetric === "pro" ? Math.round(macroSum(state.days[day] || []).p) : total(day); }
   function renderWeek() {
     var wk = $("week"), wl = $("wklabels"); wk.innerHTML = ""; wl.innerHTML = "";
+    var pro = weekMetric === "pro", goal = pro ? state.proGoal : state.goal;
     var end = parse(current), days = [], i;
     for (i = 6; i >= 0; i--) { var d = new Date(end); d.setDate(d.getDate() - i); days.push(iso(d)); }
-    var vals = days.map(total);
-    var max = Math.max.apply(null, vals.concat([state.goal]));
+    var vals = days.map(dayVal);
+    var max = Math.max.apply(null, vals.concat([goal]));
     days.forEach(function (day, idx) {
       var v = vals[idx];
       var col = document.createElement("div"); col.className = "bar-col" + (day === current ? " sel" : "");
       var b = document.createElement("button"); b.type = "button";
-      b.setAttribute("aria-label", label(day) + ": " + fmt(v) + " kcal");
+      b.setAttribute("aria-label", label(day) + ": " + fmt(v) + (pro ? " g protein" : " kcal"));
       var track = document.createElement("div"); track.className = "track";
-      var bar = document.createElement("div"); bar.className = "fill" + (v > state.goal ? " over" : v ? "" : " none");
+      var bar = document.createElement("div");
+      bar.className = "fill" + (pro ? (v >= goal ? " hit" : v ? "" : " none") : (v > goal ? " over" : v ? "" : " none"));
       bar.style.height = v ? Math.max(v / max * 100, 6) + "%" : "0";
-      track.appendChild(bar); b.appendChild(track); col.appendChild(b); wk.appendChild(col);
+      track.appendChild(bar); b.appendChild(track);
       b.onclick = function () { current = day; render(); };
+      col.appendChild(b); wk.appendChild(col);
       var l = document.createElement("span"); if (day === current) l.className = "sel";
       l.textContent = parse(day).toLocaleDateString(undefined, { weekday: "narrow" });
       wl.appendChild(l);
     });
     var logged = vals.filter(function (v) { return v > 0; });
+    var hitDays = pro ? vals.filter(function (v) { return v >= goal; }).length : 0;
     $("avg").textContent = logged.length
-      ? "Average " + fmt(logged.reduce(function (a, b) { return a + b; }, 0) / logged.length) + " kcal on logged days"
+      ? (pro ? "Goal hit on " + hitDays + " of 7 days. Average " + fmt(logged.reduce(function (a, b) { return a + b; }, 0) / logged.length) + " g"
+             : "Average " + fmt(logged.reduce(function (a, b) { return a + b; }, 0) / logged.length) + " kcal on logged days")
       : "Log a few days to see your average.";
   }
+
+  $("progoal").addEventListener("change", function () {
+    var g = parseInt($("progoal").value, 10);
+    if (g >= 20 && g <= 400) setProGoal(g);
+    render();
+  });
+  $("wkseg").querySelectorAll("button").forEach(function (b) {
+    b.onclick = function () {
+      weekMetric = b.getAttribute("data-m");
+      $("wkseg").querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      renderWeek();
+    };
+  });
 
   var RULES = "Rules: estimate the weight in grams of each item as served (cooked weight, including batter, sauce and oil). Do not overestimate: one piece of fried fish fillet is about 60 to 100 g, a chicken drumstick about 90 g, a cup of cooked rice about 160 g. Name the food as specifically as you can. When two foods look alike (for example fried fish or fried chicken) pick the most likely one and mention the doubt in note. Understand foods from any cuisine, including Indonesian. Reply with only JSON: {\"items\":[{\"name\":string,\"grams\":number,\"kcal\":integer,\"protein\":number,\"carbs\":number,\"fat\":number}],\"note\":string}. If there is no food, return an empty items array and explain in note.";
 
@@ -524,7 +680,7 @@ body.sheet-open .sheet { transform: none; pointer-events: auto; }
       var refs = { entries: db.collection(base + "/tracker/entries"), settings: db.collection(base + "/tracker/settings") };
       var first = true;
       refs.settings.doc("main").onSnapshot(function (s) {
-        if (s.exists && s.data() && s.data().goal) { state.goal = s.data().goal; save(); render(); }
+        if (s.exists && s.data()) { if (s.data().goal) state.goal = s.data().goal; if (s.data().proGoal) state.proGoal = s.data().proGoal; save(); render(); }
       });
       refs.entries.onSnapshot(function (snap) {
         var days = {};
