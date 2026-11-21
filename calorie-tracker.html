@@ -1,0 +1,270 @@
+<title>Calorie Tracker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: one centered column. Summary ring on top, quick add form, day's log grouped by meal, 7-day bars. */
+:root {
+  --bg: #f4f6f3; --surface: #ffffff; --fg: #1b2420; --muted: #66726b; --line: #dde3de;
+  --accent: #2f8f5b; --accent-fg: #ffffff; --over: #d4572f; --track: #e6ebe7;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121714; --surface: #1b231e; --fg: #e8eee9; --muted: #92a098; --line: #2b362f;
+    --accent: #4cc283; --accent-fg: #0c1a12; --over: #f2825c; --track: #2a352e; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121714; --surface: #1b231e; --fg: #e8eee9; --muted: #92a098; --line: #2b362f;
+  --accent: #4cc283; --accent-fg: #0c1a12; --over: #f2825c; --track: #2a352e; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+h1 { font-size: 1.5rem; }
+h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 500; }
+.num { font-variant-numeric: tabular-nums; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.datenav { display: flex; align-items: center; gap: 4px; }
+.icon-btn { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; width: 36px; height: 36px; display: grid; place-items: center; }
+.icon-btn:disabled { opacity: .4; cursor: default; }
+.datelabel { min-width: 110px; text-align: center; font-weight: 500; }
+
+.summary { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.ring { position: relative; width: 150px; height: 150px; flex: none; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.ring .big { font-family: var(--font-display); font-size: 2rem; font-weight: 700; line-height: 1; }
+.ring .small { color: var(--muted); font-size: .8rem; }
+.stats { flex: 1; min-width: 160px; display: grid; gap: 10px; }
+.stat { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.stat:last-child { border: 0; padding: 0; }
+.stat span:first-child { color: var(--muted); }
+.stat b { font-weight: 600; }
+.goal-edit { display: flex; align-items: center; gap: 8px; }
+.goal-edit input { width: 84px; }
+
+form { display: grid; grid-template-columns: 1fr 110px; gap: 8px; margin-top: 12px; }
+form .row2 { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+input, select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; min-width: 0; width: 100%; }
+.primary { background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 8px; padding: 9px 18px; font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chip { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: .85rem; }
+.chip:hover { border-color: var(--accent); }
+
+.group + .group { margin-top: 14px; }
+.group-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.entry { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.entry .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.entry .kcal { color: var(--muted); }
+.del { background: none; border: 0; color: var(--muted); width: 28px; height: 28px; border-radius: 6px; font-size: 1.1rem; }
+.del:hover { color: var(--over); }
+.empty { color: var(--muted); text-align: center; padding: 16px 0 4px; }
+
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 130px; margin-top: 12px; }
+.bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; font-size: .75rem; color: var(--muted); }
+.bar-col button { background: none; border: 0; padding: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; color: inherit; font-size: inherit; }
+.bar { width: 100%; max-width: 34px; border-radius: 6px 6px 2px 2px; background: var(--accent); min-height: 3px; }
+.bar.over { background: var(--over); }
+.bar.none { background: var(--track); }
+.bar-col.sel .lbl { color: var(--fg); font-weight: 600; }
+.bar-col.sel .bar { outline: 2px solid var(--fg); outline-offset: 1px; }
+.avg { color: var(--muted); font-size: .85rem; margin-top: 10px; }
+@media (max-width: 420px) { .ring { margin: 0 auto; } }
+@media (prefers-reduced-motion: no-preference) { .bar, .ring circle { transition: all .3s ease; } }
+</style>
+
+<main>
+  <header>
+    <h1>Calorie Tracker</h1>
+    <div class="datenav">
+      <button class="icon-btn" id="prev" aria-label="Previous day">‹</button>
+      <div class="datelabel" id="datelabel"></div>
+      <button class="icon-btn" id="next" aria-label="Next day">›</button>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="summary">
+      <div class="ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="var(--track)" stroke-width="11"/>
+          <circle id="arc" cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="11" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+        </svg>
+        <div class="center"><div class="big num" id="eaten">0</div><div class="small">kcal eaten</div></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><span>Daily goal</span>
+          <span class="goal-edit"><input id="goal" type="number" min="500" max="10000" step="50" aria-label="Daily goal in kcal"></span></div>
+        <div class="stat"><span id="remlabel">Remaining</span><b class="num" id="remaining">0</b></div>
+        <div class="stat"><span>Meals logged</span><b class="num" id="count">0</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Add food</h2>
+    <form id="form">
+      <input id="food" placeholder="What did you eat?" required maxlength="80" autocomplete="off" aria-label="Food name">
+      <input id="cal" type="number" min="1" max="5000" placeholder="kcal" required aria-label="Calories">
+      <div class="row2">
+        <select id="meal" aria-label="Meal">
+          <option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option>
+        </select>
+        <button class="primary" type="submit">Add</button>
+      </div>
+    </form>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <section class="card">
+    <h2>Today's log</h2>
+    <div id="log"></div>
+  </section>
+
+  <section class="card">
+    <h2>Last 7 days</h2>
+    <div class="week" id="week"></div>
+    <div class="avg num" id="avg"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var KEY = "calorie-tracker-v1";
+  var MEALS = ["Breakfast", "Lunch", "Dinner", "Snack"];
+  var QUICK = [["Egg", 78], ["Banana", 105], ["Rice, 1 cup", 205], ["Chicken breast", 165], ["Apple", 95], ["Coffee with milk", 40]];
+  var state = { goal: 2000, days: {} };
+  try { var raw = localStorage.getItem(KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function iso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function parse(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  var todayStr = iso(new Date());
+  var current = todayStr;
+  function total(day) { return (state.days[day] || []).reduce(function (a, e) { return a + e.kcal; }, 0); }
+  function $(id) { return document.getElementById(id); }
+  function fmt(n) { return Math.round(n).toLocaleString(); }
+
+  function label(day) {
+    if (day === todayStr) return "Today";
+    var y = new Date(); y.setDate(y.getDate() - 1);
+    if (day === iso(y)) return "Yesterday";
+    return parse(day).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  }
+
+  function render() {
+    var entries = state.days[current] || [];
+    var sum = total(current), goal = state.goal, over = sum > goal;
+    $("datelabel").textContent = label(current);
+    $("next").disabled = current >= todayStr;
+    $("eaten").textContent = fmt(sum);
+    $("goal").value = goal;
+    var arc = $("arc"), C = 326.7;
+    arc.style.strokeDashoffset = C * (1 - Math.min(sum / goal, 1));
+    arc.style.stroke = over ? "var(--over)" : "var(--accent)";
+    $("remlabel").textContent = over ? "Over goal by" : "Remaining";
+    $("remaining").textContent = fmt(Math.abs(goal - sum)) + " kcal";
+    $("remaining").style.color = over ? "var(--over)" : "";
+    $("count").textContent = entries.length;
+    document.querySelector("section:nth-of-type(3) h2").textContent = (current === todayStr ? "Today" : label(current)) + "'s log";
+
+    var log = $("log"); log.innerHTML = "";
+    if (!entries.length) {
+      log.innerHTML = '<div class="empty">Nothing logged yet. Add your first meal above.</div>';
+    } else {
+      MEALS.forEach(function (m) {
+        var items = entries.filter(function (e) { return e.meal === m; });
+        if (!items.length) return;
+        var g = document.createElement("div"); g.className = "group";
+        var sub = items.reduce(function (a, e) { return a + e.kcal; }, 0);
+        g.innerHTML = '<div class="group-head"><h2></h2><span class="num kcal" style="color:var(--muted);font-size:.85rem"></span></div>';
+        g.querySelector("h2").textContent = m;
+        g.querySelector(".kcal").textContent = fmt(sub) + " kcal";
+        items.forEach(function (e) {
+          var row = document.createElement("div"); row.className = "entry";
+          var n = document.createElement("span"); n.className = "name"; n.textContent = e.name;
+          var k = document.createElement("span"); k.className = "kcal num"; k.textContent = fmt(e.kcal);
+          var d = document.createElement("button"); d.className = "del"; d.type = "button"; d.textContent = "×";
+          d.setAttribute("aria-label", "Delete " + e.name);
+          d.onclick = function () {
+            state.days[current] = (state.days[current] || []).filter(function (x) { return x.id !== e.id; });
+            if (!state.days[current].length) delete state.days[current];
+            save(); render();
+          };
+          row.append(n, k, d); g.appendChild(row);
+        });
+        log.appendChild(g);
+      });
+    }
+    renderWeek();
+  }
+
+  function renderWeek() {
+    var wk = $("week"); wk.innerHTML = "";
+    var end = parse(current), days = [], i;
+    for (i = 6; i >= 0; i--) { var d = new Date(end); d.setDate(d.getDate() - i); days.push(iso(d)); }
+    var vals = days.map(total);
+    var max = Math.max.apply(null, vals.concat([state.goal]));
+    days.forEach(function (day, idx) {
+      var v = vals[idx];
+      var col = document.createElement("div"); col.className = "bar-col" + (day === current ? " sel" : "");
+      var b = document.createElement("button"); b.type = "button";
+      b.setAttribute("aria-label", label(day) + ": " + fmt(v) + " kcal");
+      var val = document.createElement("span"); val.className = "num"; val.textContent = v ? fmt(v) : "–";
+      var bar = document.createElement("div");
+      bar.className = "bar" + (v > state.goal ? " over" : v ? "" : " none");
+      bar.style.height = Math.max(v / max * 80, 3) + "%";
+      var l = document.createElement("span"); l.className = "lbl";
+      l.textContent = parse(day).toLocaleDateString(undefined, { weekday: "short" });
+      b.append(val, bar, l);
+      b.onclick = function () { current = day; render(); };
+      col.appendChild(b); wk.appendChild(col);
+    });
+    var logged = vals.filter(function (v) { return v > 0; });
+    $("avg").textContent = logged.length
+      ? "Average on logged days: " + fmt(logged.reduce(function (a, b) { return a + b; }, 0) / logged.length) + " kcal (goal " + fmt(state.goal) + ")"
+      : "Log a few days to see your average.";
+  }
+
+  function add(name, kcal, meal) {
+    (state.days[current] = state.days[current] || []).push({ id: Date.now() + Math.random(), name: name, kcal: kcal, meal: meal });
+    save(); render();
+  }
+
+  $("form").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var name = $("food").value.trim(), kcal = parseInt($("cal").value, 10);
+    if (!name || !(kcal > 0)) return;
+    add(name, kcal, $("meal").value);
+    $("food").value = ""; $("cal").value = ""; $("food").focus();
+  });
+
+  QUICK.forEach(function (q) {
+    var c = document.createElement("button"); c.type = "button"; c.className = "chip";
+    c.textContent = q[0] + " · " + q[1];
+    c.onclick = function () { $("food").value = q[0]; $("cal").value = q[1]; $("cal").focus(); };
+    $("chips").appendChild(c);
+  });
+
+  $("goal").addEventListener("change", function () {
+    var g = parseInt($("goal").value, 10);
+    if (g >= 500 && g <= 10000) { state.goal = g; save(); }
+    render();
+  });
+  $("prev").onclick = function () { var d = parse(current); d.setDate(d.getDate() - 1); current = iso(d); render(); };
+  $("next").onclick = function () { var d = parse(current); d.setDate(d.getDate() + 1); if (iso(d) <= todayStr) { current = iso(d); render(); } };
+
+  var h = new Date().getHours();
+  $("meal").value = h < 11 ? "Breakfast" : h < 15 ? "Lunch" : h < 20 ? "Dinner" : "Snack";
+  render();
+})();
+</script>
